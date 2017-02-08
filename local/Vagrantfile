@@ -1,0 +1,68 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+#Set the default provider to virtualbox
+# https://docs.vagrantup.com/v2/providers/default.html
+
+ENV['VAGRANT_DEFAULT_PROVIDER'] = 'virtualbox'
+
+# Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
+VAGRANTFILE_API_VERSION = "2"
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+
+  def check_dependency(plugin_name)
+    unless Vagrant.has_plugin?(plugin_name)
+      puts "Vagrant [" + plugin_name + "] is required but is not installed\n" +
+               "please check if you have the plugin with the following command:\n" +
+               "    $ vagrand plugin list\n" +
+               "If needed install the plugin:\n" +
+               "    $ vagrant plugin install " + plugin_name + "\n"
+      abort "Missing [" + plugin_name + "] plugin\n\n"
+    end
+  end
+
+  #Vagrant box with puppet preinstalled
+  config.vm.box = "lamudi/centos-7.0"
+
+  #Sync the current directory to /vagrant
+  config.vm.synced_folder ".", "/vagrant"
+
+  check_dependency 'vagrant-vbguest'
+
+  config.vm.box_check_update = true
+  config.vbguest.auto_update = false
+
+  #Networking between the host and vagrant box
+
+  #Forward the port only
+  #config.vm.network "forwarded_port", guest: 80, host: 1234
+
+  #Make it look like another machine accessible only by the host
+  config.vm.network "private_network", ip: "192.168.1.10"
+
+
+  # vagrant provision - will run provisioning
+  # vagrant provision --provision-with ansible
+  config.vm.provision "ansible" do |ansible|
+
+    #Playbook to make sure /vagrant path exist
+
+    ansible.playbook = "provisioning/ansible/playbooks/site.yml"
+
+    #Playbook to create a httpsimplewebserver on the chosen path
+    #To verify the below playbook go to your browser and hit the ip address defined in your private_network (192.168.50.4) i.e https://192.168.50.4
+    #Uncomment the below line to use it
+
+    #ansible.playbook = "provisioning/ansible/playbooks/HttpServer.yml"
+
+  end
+
+  # Run chef provisioner
+  config.vm.provision "chef_solo" do |chef|
+    chef.add_recipe "exercise0"
+
+  end
+
+  # To apply puppet from the VM - "sudo puppet apply /vagrant/provisioning/puppet/default.pp"
+end

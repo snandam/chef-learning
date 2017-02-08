@@ -1,0 +1,90 @@
+# Ansible playbook to install ruby
+# http://www.bonusbits.com/wiki/HowTo:Install_Ruby_on_CentOS
+# Perform a dry run: ansible-playbook install_ruby.yml -v --ask-sudo-pass --check
+# Known Errors: /usr/local/lib/ruby/1.9.1/yaml.rb:84:in `<top (required)>': It seems your ruby installation is missing psych (for YAML output).
+# Above error doesn't seem to cause any issue with librarian-puppet, so ignoring for now
+
+- hosts: all
+  become: yes
+  become_method: sudo
+  remote_user: root
+  vars:
+    ruby_major_version: 2.2
+    ruby_minor_version: 6
+    chef_rpm: chefdk-1.2.22-1.el7.x86_64
+    chef_download_url: https://packages.chef.io/files/stable/chefdk/1.2.22/el/7/chefdk-1.2.22-1.el7.x86_64.rpm
+    ruby_download: http://ftp.ruby-lang.org/pub/ruby/{{ruby_major_version}}/ruby-{{ruby_major_version}}.{{ruby_minor_version}}.tar.gz
+    download_folder: /usr/src
+    ruby_archive: "{{download_folder}}/ruby-{{ruby_major_version}}.{{ruby_minor_version}}.tar.gz"
+    ruby_folder: ruby-{{ruby_major_version}}.{{ruby_minor_version}}
+  tasks:
+
+  - name: Install development tools
+    yum: name="@Development Tools" state=present
+
+  - name: Install other dependencies
+    yum: name=zlib,zlib-devel,curl,curl-devel,openssl-devel,httpd-devel,apr-devel,apr-util-devel,sqlite-devel,mysql-devel,libyaml,libyaml-devel
+
+  - name: Remove ruby if it's already installed
+    yum: name=ruby state=absent
+
+  - name: Download ruby
+    command: 'wget -q -O {{ruby_archive}} {{ruby_download}} creates={{ruby_archive}}'
+
+  - name: Extract ruby archive
+    command: "tar -xzf {{ruby_archive}} -C {{download_folder}} creates={{download_folder}}/{{ruby_folder}}"
+
+  - name: configure
+    command: ./configure
+    args:
+      chdir: "{{download_folder}}/{{ruby_folder}}"
+
+  - name: make
+    command: make
+    args:
+      chdir: "{{download_folder}}/{{ruby_folder}}"
+
+  - name: compile
+    command: make install
+    args:
+      chdir: "{{download_folder}}/{{ruby_folder}}"
+
+  - name: Create symlink to ruby
+    file: "state=link src=/usr/local/bin/ruby dest=/usr/bin/ruby"
+
+  - name: Create symlink to gem
+    file: "state=link src=/usr/src/ruby-{{ruby_major_version}}.{{ruby_minor_version}}/bin/gem dest=/usr/bin/gem"
+
+  - name: Check if chef dk is already installed
+    command: "rpm -q {{ chef_rpm }}"
+    register: chef_dk_check
+    ignore_errors: True
+
+  - debug: var=chef_dk_check.stdout
+
+  - name: Remove chef that comes with vagrant machine
+    yum:
+      name: chef-11.16.2-1.el6.x86_64
+      state: removed
+
+  - name: Install Chef-SDK
+    yum:
+      name: "{{ chef_download_url }}"
+      state: installed
+    when: chef_dk_check.stdout.find('is not installed') != -1
+
+  - name: Install foodcritic dependencies
+    command: "gem install {{ item }}"
+    with_items:
+      - cucumber-core
+      - gherkin
+      - backports
+      - nokogiri
+      - mini_portile2
+      - treetop
+
+  - name: Create symlink to foodcritic
+    file: "state=link src=/opt/chefdk/bin/foodcritic dest=/usr/bin/foodcritic"
+
+  - name: Create symlink to foodcritic
+    file: "state=link src=/opt/chefdk/bin/foodcritic dest=/usr/bin/foodcritic"
