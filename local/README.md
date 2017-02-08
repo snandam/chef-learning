@@ -7,12 +7,20 @@ vagrant plugin install vagrant-vbguest
 # Installs the latest version of ruby and foodcritic required for testing
 vagrant provision --provision-with ansible
 
-# This is to run a recipe as part of vagrant. You can run the below exercises instead of running this command.
+# This is to run a recipe as part of vagrant. chef-solo and chef-client are installed as part of install chef. Run this after you have run ansible
 vagrant provision --provision-with chef_solo
 
 ```
 
 ========== Node
+
+Login
+
+```sh
+vagrant ssh
+sudo su
+```
+
 
 #### Exercise 0:
 
@@ -26,8 +34,6 @@ cat /tmp/helloworld.txt
 ##### Install httpd and run it
 
 ```sh
-vagrant ssh
-sudo su
 
 # Individual commands
 ruby -c /vagrant/cookbooks/exercise1/recipes/default.rb
